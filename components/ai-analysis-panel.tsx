@@ -1,20 +1,62 @@
 'use client'
 
-import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Sparkles, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, ChevronDown, ChevronUp, RotateCcw, Send, Sparkles, X, XCircle } from 'lucide-react'
 
+import { DismissDialog } from '@/components/dismiss-dialog'
+import { SendTeamsDialog } from '@/components/send-teams-dialog'
 import { cn } from '@/lib/utils'
-import { type Analysis, difficultyMeta } from '@/lib/records'
+import { type Analysis, difficultyMeta, formatAge, getAgeMinutes } from '@/lib/records'
+import { getEmployee } from '@/lib/employees'
+import {
+  getMessagesForDocument,
+  type SentMessage,
+} from '@/lib/teams-messaging'
+import { type Dismissal, getDismissal, restoreDoc } from '@/lib/dismissals'
+import { useTickingNow } from '@/lib/useTickingNow'
 
-export function AiAnalysisPanel({ analysis }: { analysis: Analysis | undefined }) {
-  const [assigned, setAssigned] = useState(false)
-  const [editNotice, setEditNotice] = useState(false)
+export function AiAnalysisPanel({
+  analysis,
+  documentIndex,
+  docNo,
+}: {
+  analysis: Analysis | undefined
+  documentIndex: number
+  docNo: string
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dismissDialogOpen, setDismissDialogOpen] = useState(false)
+  const [history, setHistory] = useState<SentMessage[]>([])
+  const [dismissal, setDismissal] = useState<Dismissal | null>(null)
   const [feedback, setFeedback] = useState<'yes' | 'no' | null>(null)
   const [logsOpen, setLogsOpen] = useState(false)
+  const now = useTickingNow()
+
+  useEffect(() => {
+    setHistory(getMessagesForDocument(documentIndex))
+    setDismissal(getDismissal(documentIndex) ?? null)
+  }, [documentIndex])
+
+  const latestSend = history[0]
+  const wasSent = !!latestSend
+
+  const refreshHistory = () => {
+    setHistory(getMessagesForDocument(documentIndex))
+  }
+
+  const refreshDismissal = () => {
+    setDismissal(getDismissal(documentIndex) ?? null)
+  }
+
+  const handleRestore = () => {
+    restoreDoc(documentIndex)
+    refreshDismissal()
+  }
 
   if (!analysis) return null
 
   const diff = difficultyMeta[analysis.difficulty]
+  const latestRecipient = latestSend ? getEmployee(latestSend.recipientId) : undefined
 
   return (
     <section className="mb-6 rounded-md border border-[#c9ddf5] bg-[#f6faff] p-5">
@@ -90,65 +132,122 @@ export function AiAnalysisPanel({ analysis }: { analysis: Analysis | undefined }
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#c9ddf5] pt-4">
-        {assigned ? (
-          <div className="inline-flex items-center gap-2 rounded-md bg-[#e8f5ed] px-3 py-2 text-[12px] font-medium text-[#178a4c]">
-            <Check className="h-3.5 w-3.5" />
-            Məsul tərəfə təyin edildi
+      <div className="mt-4 border-t border-[#c9ddf5] pt-4">
+        {dismissal ? (
+          <div className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-[#e0e3e7] bg-[#f4f7fa] px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#4d5158]">
+                <XCircle className="h-3.5 w-3.5" />
+                Bağlanmış — həll oluna bilmir
+              </div>
+              {dismissal.reason && (
+                <div className="mt-1 text-[12px] text-[#30343b]">
+                  <span className="font-medium">Səbəb:</span> {dismissal.reason}
+                </div>
+              )}
+              {now !== null && (
+                <div className="mt-1 text-[11px] text-[#61656b]">
+                  {formatAge(getAgeMinutes(new Date(dismissal.dismissedAt).toISOString(), now))} əvvəl bağlanıb
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleRestore}
+              className="inline-flex items-center gap-1.5 rounded-[3px] border border-[#c9d0d7] bg-white px-3 py-1.5 text-[12px] font-medium text-[#30343b] hover:bg-[#f4f7fa]"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Bərpa et
+            </button>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setAssigned(true)
-                setEditNotice(false)
-              }}
-              className="rounded-[3px] bg-[#1683df] px-4 py-2 text-[12px] font-medium text-white hover:bg-[#1274c5]"
-            >
-              Təsdiqlə və təyin et
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditNotice(true)}
-              className="rounded-[3px] border border-[#c9d0d7] bg-white px-4 py-2 text-[12px] font-medium text-[#30343b] hover:bg-[#f4f7fa]"
-            >
-              Dəyişdir
-            </button>
-            {editNotice && (
-              <span className="text-[11px] italic text-[#8a8f96]">
-                Redaktə rejimi (prototipdə mövcud deyil)
-              </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {wasSent ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="inline-flex items-center gap-2 rounded-md bg-[#e8f5ed] px-3 py-2 text-[12px] font-medium text-[#178a4c]">
+                  <Check className="h-3.5 w-3.5" />
+                  {latestRecipient?.name ?? 'Alıcıya'} Teams-də göndərildi
+                  {now !== null && (
+                    <span className="text-[#61656b]">
+                      · {formatAge(getAgeMinutes(new Date(latestSend.sentAt).toISOString(), now))} əvvəl
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(true)}
+                  className="text-[12px] font-medium text-[#1683df] hover:underline"
+                >
+                  Yenidən göndər
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#1683df] px-4 py-2 text-[12px] font-medium text-white hover:bg-[#1274c5]"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Təsdiqlə və Teams-ə göndər
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDismissDialogOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-[3px] border border-[#c9d0d7] bg-white px-3 py-2 text-[12px] font-medium text-[#61656b] hover:border-[#c73030] hover:text-[#c73030]"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Həll edilməz olaraq bağla
+                </button>
+              </div>
+            )}
+
+            {wasSent && (
+              feedback ? (
+                <span className="text-[12px] text-[#61656b]">Rəy qeydə alındı. Təşəkkürlər.</span>
+              ) : (
+                <div className="flex items-center gap-2 text-[12px] text-[#61656b]">
+                  <span>AI düz təxmin etdi?</span>
+                  <button
+                    type="button"
+                    onClick={() => setFeedback('yes')}
+                    aria-label="Bəli"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#c9d0d7] bg-white text-[#178a4c] hover:bg-[#e8f5ed]"
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeedback('no')}
+                    aria-label="Xeyr"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#c9d0d7] bg-white text-[#c73030] hover:bg-[#fdecec]"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )
             )}
           </div>
         )}
-
-        {assigned && (
-          feedback ? (
-            <span className="text-[12px] text-[#61656b]">Rəy qeydə alındı. Təşəkkürlər.</span>
-          ) : (
-            <div className="flex items-center gap-2 text-[12px] text-[#61656b]">
-              <span>AI düz təxmin etdi?</span>
-              <button
-                type="button"
-                onClick={() => setFeedback('yes')}
-                aria-label="Bəli"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#c9d0d7] bg-white text-[#178a4c] hover:bg-[#e8f5ed]"
-              >
-                <Check className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setFeedback('no')}
-                aria-label="Xeyr"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#c9d0d7] bg-white text-[#c73030] hover:bg-[#fdecec]"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )
-        )}
       </div>
+
+      <SendTeamsDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        analysis={analysis}
+        documentIndex={documentIndex}
+        docNo={docNo}
+        onSent={refreshHistory}
+      />
+
+      <DismissDialog
+        open={dismissDialogOpen}
+        onOpenChange={setDismissDialogOpen}
+        documentIndex={documentIndex}
+        docNo={docNo}
+        detectedError={analysis.detectedError}
+        onDismissed={refreshDismissal}
+      />
     </section>
   )
 }

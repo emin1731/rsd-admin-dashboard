@@ -160,6 +160,91 @@ export const getAnalysis = (index: number): Analysis | undefined =>
 export const hasAnalysis = (index: number): boolean =>
   index in analysesByIndex
 
+export const STALENESS_THRESHOLDS = {
+  warningMinutes: 120,
+  overdueMinutes: 360,
+} as const
+
+const sentMinutesAgoByIndex: Readonly<Record<number, number>> = {
+  1: 30,
+  2: 90,
+  3: 140,
+  4: 240,
+  5: 340,
+  6: 480,
+  7: 1560,
+}
+
+const moduleLoadedAt = Date.now()
+
+export function getSentAt(index: number): string | undefined {
+  const offset = sentMinutesAgoByIndex[index]
+  if (offset === undefined) return undefined
+  return new Date(moduleLoadedAt - offset * 60_000).toISOString()
+}
+
+export type StalenessTier = 'fresh' | 'warning' | 'overdue'
+
+export function getAgeMinutes(sentAt: string, now: number): number {
+  return Math.max(0, Math.floor((now - new Date(sentAt).getTime()) / 60_000))
+}
+
+export function getStalenessTier(ageMinutes: number): StalenessTier {
+  if (ageMinutes >= STALENESS_THRESHOLDS.overdueMinutes) return 'overdue'
+  if (ageMinutes >= STALENESS_THRESHOLDS.warningMinutes) return 'warning'
+  return 'fresh'
+}
+
+export function formatAge(minutes: number): string {
+  if (minutes < 1) return 'indi'
+  if (minutes < 60) return `${minutes} dəq`
+  const hours = Math.floor(minutes / 60)
+  const remMin = minutes % 60
+  if (hours < 24) return remMin === 0 ? `${hours} saat` : `${hours} saat ${remMin} dəq`
+  const days = Math.floor(hours / 24)
+  const remHours = hours % 24
+  return remHours === 0 ? `${days} gün` : `${days} gün ${remHours} saat`
+}
+
+export const stalenessMeta: Readonly<
+  Record<
+    StalenessTier,
+    {
+      label: string
+      dotClass: string
+      bgClass: string
+      textClass: string
+      borderClass: string
+      leftAccentClass: string
+    }
+  >
+> = {
+  fresh: {
+    label: 'Yeni',
+    dotClass: 'bg-[#8a8f96]',
+    bgClass: 'bg-transparent',
+    textClass: 'text-[#61656b]',
+    borderClass: 'border-[#e0e3e7]',
+    leftAccentClass: '',
+  },
+  warning: {
+    label: 'Diqqət',
+    dotClass: 'bg-[#b26a00]',
+    bgClass: 'bg-[#fff5e5]',
+    textClass: 'text-[#b26a00]',
+    borderClass: 'border-[#f4d9a8]',
+    leftAccentClass: 'border-l-[3px] border-l-[#b26a00]',
+  },
+  overdue: {
+    label: 'Gecikmiş',
+    dotClass: 'bg-[#c73030]',
+    bgClass: 'bg-[#fdecec]',
+    textClass: 'text-[#c73030]',
+    borderClass: 'border-[#f4c2c2]',
+    leftAccentClass: 'border-l-[3px] border-l-[#c73030]',
+  },
+}
+
 export const difficultyMeta: Readonly<
   Record<Difficulty, { label: string; dotClass: string; bgClass: string; textClass: string; borderClass: string }>
 > = {

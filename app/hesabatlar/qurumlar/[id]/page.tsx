@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { AgeChip } from '@/components/age-chip'
 import { AiAnalysisPanel } from '@/components/ai-analysis-panel'
-import { getAnalysis, records, REPORT_PATH } from '@/lib/records'
+import { getAnalysis, getSentAt, records, REPORT_PATH } from '@/lib/records'
 
 export default async function DocumentDetail({
   params,
@@ -15,6 +16,7 @@ export default async function DocumentDetail({
   if (!row) notFound()
 
   const analysis = getAnalysis(index)
+  const sentAt = getSentAt(index)
   const abroad = row[6] === '-' ? 'Bəli' : 'Xeyr'
   const content = `{"StatusCode":${row[5]},"Message":"${row[8] === 'Uğurlu' ? 'OK' : 'Internal Server Error'}","Data":null}`
 
@@ -35,8 +37,9 @@ export default async function DocumentDetail({
 
   return (
     <section className="min-h-[calc(100vh-72px)] overflow-hidden rounded-[3px] border border-[#e0e3e7] bg-white">
-      <div className="px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <h1 className="font-semibold text-[15px]">Qurumlar üzrə hesabat baxış</h1>
+        {sentAt && <AgeChip sentAt={sentAt} size="md" />}
       </div>
       <div className="px-5 pb-8">
         <Link
@@ -46,7 +49,7 @@ export default async function DocumentDetail({
           Siyahıya qayıt
         </Link>
 
-        <AiAnalysisPanel analysis={analysis} />
+        <AiAnalysisPanel analysis={analysis} documentIndex={index} docNo={row[0]} />
 
         <dl className="divide-y divide-transparent">
           {fields.map(({ label, value }) => (

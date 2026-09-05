@@ -17,8 +17,10 @@ import {
   Monitor,
   Network,
   SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react'
 
+import { NotificationBell } from '@/components/notification-bell'
 import { cn } from '@/lib/utils'
 import { REPORT_PATH } from '@/lib/records'
 
@@ -40,24 +42,33 @@ const reportLinks: { label: string; href?: string }[] = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [reportsOpen, setReportsOpen] = useState(true)
+  const [aiTriageOpen, setAiTriageOpen] = useState(true)
   const [menuOpen, setMenuOpen] = useState(true)
 
   const isActive = (href?: string) =>
     !!href && (pathname === href || pathname.startsWith(href + '/'))
 
+  const isExactActive = (href: string) => pathname === href
+
   return (
     <div className="min-h-screen bg-[#f7f8fa] font-sans text-[13px] text-[#30343b]">
       <header className="flex h-12 items-center justify-between border-b border-[#e5e7ea] bg-white px-4">
-        <Link href="/" className="flex flex-col font-semibold tracking-tight leading-none">
-          <span className="text-[18px]">RSD</span>
-          <span className="mt-0.5 flex items-center gap-1 self-end text-[11px] text-[#d7194b]">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="RSD admin">
+          <img
+            src="/rsd-logo.jpeg"
+            alt="RSD — Rəqəmsal Sənəd Dövriyyəsi"
+            className="h-8 w-auto"
+          />
+          <span className="border-l border-[#e5e7ea] pl-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#61656b]">
             admin
-            <span className="h-1 w-1 rounded-full bg-[#d7194b]" />
           </span>
         </Link>
-        <div className="flex items-center gap-2 text-[12px] text-[#4d5158]">
-          <CircleUserRound className="h-4 w-4 text-[#6b7078]" />
-          SELCAN HÜSEYNOVA İLQAR QIZI
+        <div className="flex items-center gap-3 text-[12px] text-[#4d5158]">
+          <NotificationBell />
+          <div className="flex items-center gap-2">
+            <CircleUserRound className="h-4 w-4 text-[#6b7078]" />
+            SELCAN HÜSEYNOVA İLQAR QIZI
+          </div>
         </div>
       </header>
 
@@ -83,6 +94,23 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {mainLinks.slice(3).map(([label, Icon]) => (
                 <NavItem key={label} label={label} Icon={Icon} />
               ))}
+              <NavItem
+                label="AI triage"
+                Icon={Sparkles}
+                expandable
+                expanded={aiTriageOpen}
+                onClick={() => setAiTriageOpen(!aiTriageOpen)}
+              />
+              {aiTriageOpen && (
+                <div className="py-1">
+                  <SubItem label="Növbə" href="/ai-triage" active={isExactActive('/ai-triage')} />
+                  <SubItem
+                    label="Mesajlar"
+                    href="/ai-triage/mesajlar"
+                    active={isExactActive('/ai-triage/mesajlar')}
+                  />
+                </div>
+              )}
               <NavItem
                 label="Hesabatlar"
                 Icon={Folder}
@@ -122,32 +150,70 @@ export function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
+function SubItem({
+  label,
+  href,
+  active,
+}: {
+  label: string
+  href: string
+  active: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'flex items-start gap-2 px-6 py-2 text-left leading-[1.35] hover:bg-[#f4f7fa]',
+        active && 'bg-[#e6f1ff] font-semibold text-[#1683df]',
+      )}
+    >
+      <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      {label}
+    </Link>
+  )
+}
+
 function NavItem({
   label,
   Icon,
+  href,
+  active = false,
   expandable = false,
   expanded = false,
   onClick,
 }: {
   label: string
   Icon: typeof BarChart3
+  href?: string
+  active?: boolean
   expandable?: boolean
   expanded?: boolean
   onClick?: () => void
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-[#f4f7fa]"
-    >
-      <Icon className="h-4 w-4 shrink-0 text-[#697078]" />
+  const className = cn(
+    'flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-[#f4f7fa]',
+    active && 'bg-[#e6f1ff] font-semibold text-[#1683df]',
+  )
+  const contents = (
+    <>
+      <Icon
+        className={cn('h-4 w-4 shrink-0', active ? 'text-[#1683df]' : 'text-[#697078]')}
+      />
       <span className="flex-1">{label}</span>
       {expandable && (
         <ChevronDown
           className={cn('h-3.5 w-3.5 transition-transform', !expanded && '-rotate-90')}
         />
       )}
+    </>
+  )
+  return href ? (
+    <Link href={href} className={className}>
+      {contents}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} className={className}>
+      {contents}
     </button>
   )
 }
