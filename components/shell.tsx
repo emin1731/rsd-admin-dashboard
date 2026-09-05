@@ -94,13 +94,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {mainLinks.slice(3).map(([label, Icon]) => (
                 <NavItem key={label} label={label} Icon={Icon} />
               ))}
-              <NavItem
-                label="AI triage"
-                Icon={Sparkles}
-                expandable
-                expanded={aiTriageOpen}
+              <button
+                type="button"
                 onClick={() => setAiTriageOpen(!aiTriageOpen)}
-              />
+                className={cn(
+                  'flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors',
+                  isActive('/ai-triage')
+                    ? 'bg-[#e6f1ff] font-semibold text-[#1683df]'
+                    : 'bg-[#f6faff] text-[#30343b] hover:bg-[#e6f1ff]',
+                )}
+              >
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1683df] text-white">
+                  <Sparkles className="h-3 w-3" />
+                </span>
+                <span className="flex-1">AI triage</span>
+                <span className="rounded-sm bg-[#1683df] px-1 py-0.5 text-[9px] font-semibold text-white">
+                  YENİ
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-3.5 w-3.5 transition-transform text-[#1683df]',
+                    !aiTriageOpen && '-rotate-90',
+                  )}
+                />
+              </button>
               {aiTriageOpen && (
                 <div className="py-1">
                   <SubItem label="Növbə" href="/ai-triage" active={isExactActive('/ai-triage')} />
