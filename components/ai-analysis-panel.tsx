@@ -1,19 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, RotateCcw, Send, Sparkles, X, XCircle } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, RotateCcw, Send, Sparkles, X, XCircle, Zap } from 'lucide-react'
 
 import { DismissDialog } from '@/components/dismiss-dialog'
 import { SendTeamsDialog } from '@/components/send-teams-dialog'
 import { cn } from '@/lib/utils'
-import { type Analysis, difficultyMeta, formatAge, getAgeMinutes } from '@/lib/records'
-import { getEmployee } from '@/lib/employees'
+import { type Analysis, difficultyMeta, formatAge, getAgeMinutes, records } from '@/lib/records'
+import { employees, getEmployee } from '@/lib/employees'
 import {
   getMessagesForDocument,
+  logMessage,
+  resolveRecipient,
   type SentMessage,
 } from '@/lib/teams-messaging'
+import { buildTeamsMessage } from '@/lib/teams-message'
 import { type Dismissal, getDismissal, restoreDoc } from '@/lib/dismissals'
 import { useTickingNow } from '@/lib/useTickingNow'
+
+const AUTO_SEND_THRESHOLD = 70
 
 export function AiAnalysisPanel({
   analysis,
@@ -26,16 +31,43 @@ export function AiAnalysisPanel({
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false)
-  const [history, setHistory] = useState<SentMessage[]>([])
-  const [dismissal, setDismissal] = useState<Dismissal | null>(null)
+  const [history, setHistory] = useState<SentMessage[]>(() =>
+    typeof window === 'undefined' ? [] : getMessagesForDocument(documentIndex),
+  )
+  const [dismissal, setDismissal] = useState<Dismissal | null>(() =>
+    typeof window === 'undefined' ? null : (getDismissal(documentIndex) ?? null),
+  )
   const [feedback, setFeedback] = useState<'yes' | 'no' | null>(null)
   const [logsOpen, setLogsOpen] = useState(false)
   const now = useTickingNow()
 
   useEffect(() => {
-    setHistory(getMessagesForDocument(documentIndex))
-    setDismissal(getDismissal(documentIndex) ?? null)
-  }, [documentIndex])
+    const fresh = getMessagesForDocument(documentIndex)
+    const freshDismissal = getDismissal(documentIndex) ?? null
+    setHistory(fresh)
+    setDismissal(freshDismissal)
+
+    if (
+      analysis &&
+      analysis.confidence >= AUTO_SEND_THRESHOLD &&
+      fresh.length === 0 &&
+      !freshDismissal
+    ) {
+      const recipient = resolveRecipient(analysis.category) ?? getEmployee(employees[0].id)!
+      const row = records[documentIndex]
+      const draft = buildTeamsMessage({ recipient, row, analysis, docNo })
+      logMessage({
+        documentIndex,
+        docNo,
+        recipientId: recipient.id,
+        category: analysis.category,
+        detectedError: analysis.detectedError,
+        note: draft,
+        auto: true,
+      })
+      setHistory(getMessagesForDocument(documentIndex))
+    }
+  }, [documentIndex, analysis, docNo])
 
   const latestSend = history[0]
   const wasSent = !!latestSend
@@ -167,6 +199,12 @@ export function AiAnalysisPanel({
                 <div className="inline-flex items-center gap-2 rounded-md bg-[#e8f5ed] px-3 py-2 text-[12px] font-medium text-[#178a4c]">
                   <Check className="h-3.5 w-3.5" />
                   {latestRecipient?.name ?? 'Alıcıya'} Teams-də göndərildi
+                  {latestSend.auto && (
+                    <span className="inline-flex items-center gap-1 rounded-sm bg-[#5b5fc7] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      <Zap className="h-2.5 w-2.5" />
+                      Avtomatik
+                    </span>
+                  )}
                   {now !== null && (
                     <span className="text-[#61656b]">
                       · {formatAge(getAgeMinutes(new Date(latestSend.sentAt).toISOString(), now))} əvvəl
@@ -182,23 +220,33 @@ export function AiAnalysisPanel({
                 </button>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDialogOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#1683df] px-4 py-2 text-[12px] font-medium text-white hover:bg-[#1274c5]"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  Təsdiqlə və Teams-ə göndər
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDismissDialogOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-[3px] border border-[#c9d0d7] bg-white px-3 py-2 text-[12px] font-medium text-[#61656b] hover:border-[#c73030] hover:text-[#c73030]"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Həll edilməz olaraq bağla
-                </button>
+              <div className="flex w-full flex-col gap-3">
+                <div className="flex items-start gap-2 rounded-md border border-[#f4d9a8] bg-[#fff5e5] px-3 py-2 text-[12px] text-[#b26a00]">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Aşağı etibarlılıq ({analysis.confidence}%) — göndəriş üçün{' '}
+                    <span className="font-semibold">istifadəçi təsdiqi</span> tələb olunur.
+                    Yüksək etibarlılıqda ({AUTO_SEND_THRESHOLD}%+) Teams mesajı avtomatik göndərilir.
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDialogOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-[3px] bg-[#1683df] px-4 py-2 text-[12px] font-medium text-white hover:bg-[#1274c5]"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Təsdiqlə və Teams-ə göndər
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDismissDialogOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-[3px] border border-[#c9d0d7] bg-white px-3 py-2 text-[12px] font-medium text-[#61656b] hover:border-[#c73030] hover:text-[#c73030]"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Həll edilməz olaraq bağla
+                  </button>
+                </div>
               </div>
             )}
 

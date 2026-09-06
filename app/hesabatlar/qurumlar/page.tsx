@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   CalendarDays,
   CheckCircle2,
@@ -9,7 +9,7 @@ import {
   Eye,
   Search,
   X,
-} from 'lucide-react'
+} from "lucide-react";
 
 import {
   Table,
@@ -18,17 +18,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
-import { AgeChip } from '@/components/age-chip'
-import { cn } from '@/lib/utils'
-import { getDismissed } from '@/lib/dismissals'
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { AgeChip } from "@/components/age-chip";
+import { cn } from "@/lib/utils";
+import { getDismissed } from "@/lib/dismissals";
 import {
   difficultyMeta,
   getAgeMinutes,
@@ -40,20 +40,20 @@ import {
   REPORT_PATH,
   stalenessMeta,
   type Difficulty,
-} from '@/lib/records'
-import { useTickingNow } from '@/lib/useTickingNow'
+} from "@/lib/records";
+import { useTickingNow } from "@/lib/useTickingNow";
 
 const dropdownCols = {
-  sender: { index: 1, label: 'Göndərən qurum' },
-  senderEsd: { index: 2, label: 'Göndərən ESD' },
-  receiver: { index: 3, label: 'Qəbul edən qurum' },
-  incomingEsd: { index: 4, label: 'Gələn ESD' },
-  status: { index: 8, label: 'Status' },
-} as const
-type DropdownKey = keyof typeof dropdownCols
+  sender: { index: 1, label: "Göndərən qurum" },
+  senderEsd: { index: 2, label: "Göndərən ESD" },
+  receiver: { index: 3, label: "Qəbul edən qurum" },
+  incomingEsd: { index: 4, label: "Gələn ESD" },
+  status: { index: 8, label: "Status" },
+} as const;
+type DropdownKey = keyof typeof dropdownCols;
 
 const distinctValues = (idx: number) =>
-  Array.from(new Set(records.map(r => r[idx]))).sort()
+  Array.from(new Set(records.map((r) => r[idx]))).sort();
 
 export default function QurumlarHesabat() {
   const [dropdowns, setDropdowns] = useState<Record<DropdownKey, Set<string>>>({
@@ -62,48 +62,66 @@ export default function QurumlarHesabat() {
     receiver: new Set(),
     incomingEsd: new Set(),
     status: new Set(),
-  })
-  const [docNoSearch, setDocNoSearch] = useState('11-1/')
-  const [reqIdSearch, setReqIdSearch] = useState('')
-  const [onlyAi, setOnlyAi] = useState(false)
-  const [onlyOverdue, setOnlyOverdue] = useState(false)
-  const now = useTickingNow()
+  });
+  const [docNoSearch, setDocNoSearch] = useState("");
+  const [reqIdSearch, setReqIdSearch] = useState("");
+  const [onlyAi, setOnlyAi] = useState(false);
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    {},
+  );
+  const now = useTickingNow();
 
-  const dismissed = useMemo(() => (now === null ? {} : getDismissed()), [now])
+  const dismissed = useMemo(() => (now === null ? {} : getDismissed()), [now]);
+
+  const toggleGroup = (key: string) =>
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const toggleValue = (key: DropdownKey, value: string) =>
-    setDropdowns(prev => {
-      const next = new Set(prev[key])
-      if (next.has(value)) next.delete(value)
-      else next.add(value)
-      return { ...prev, [key]: next }
-    })
+    setDropdowns((prev) => {
+      const next = new Set(prev[key]);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, [key]: next };
+    });
 
   const clearDropdown = (key: DropdownKey) =>
-    setDropdowns(prev => ({ ...prev, [key]: new Set() }))
+    setDropdowns((prev) => ({ ...prev, [key]: new Set() }));
 
   const filtered = useMemo(() => {
-    const docNeedle = docNoSearch.trim().toLowerCase()
-    const reqNeedle = reqIdSearch.trim().toLowerCase()
+    const docNeedle = docNoSearch.trim().toLowerCase();
+    const reqNeedle = reqIdSearch.trim().toLowerCase();
     return records
       .map((row, index) => ({ row, index }))
       .filter(({ row, index }) => {
-        if (onlyAi && !hasAnalysis(index)) return false
+        if (onlyAi && !hasAnalysis(index)) return false;
         if (onlyOverdue) {
-          const sentAt = getSentAt(index)
-          if (!sentAt || now === null) return false
-          if (dismissed[index]) return false
-          if (getStalenessTier(getAgeMinutes(sentAt, now)) !== 'overdue') return false
+          const sentAt = getSentAt(index);
+          if (!sentAt || now === null) return false;
+          if (dismissed[index]) return false;
+          if (getStalenessTier(getAgeMinutes(sentAt, now)) !== "overdue")
+            return false;
         }
-        if (docNeedle && !row[0].toLowerCase().includes(docNeedle)) return false
-        if (reqNeedle && !row[7].toLowerCase().includes(reqNeedle)) return false
+        if (docNeedle && !row[0].toLowerCase().includes(docNeedle))
+          return false;
+        if (reqNeedle && !row[7].toLowerCase().includes(reqNeedle))
+          return false;
         for (const key of Object.keys(dropdownCols) as DropdownKey[]) {
-          const selected = dropdowns[key]
-          if (selected.size > 0 && !selected.has(row[dropdownCols[key].index])) return false
+          const selected = dropdowns[key];
+          if (selected.size > 0 && !selected.has(row[dropdownCols[key].index]))
+            return false;
         }
-        return true
-      })
-  }, [dropdowns, docNoSearch, reqIdSearch, onlyAi, onlyOverdue, now, dismissed])
+        return true;
+      });
+  }, [
+    dropdowns,
+    docNoSearch,
+    reqIdSearch,
+    onlyAi,
+    onlyOverdue,
+    now,
+    dismissed,
+  ]);
 
   return (
     <section className="min-h-[calc(100vh-72px)] overflow-hidden rounded-[3px] border border-[#e0e3e7] bg-white">
@@ -118,7 +136,7 @@ export default function QurumlarHesabat() {
               <input
                 type="checkbox"
                 checked={onlyAi}
-                onChange={e => setOnlyAi(e.target.checked)}
+                onChange={(e) => setOnlyAi(e.target.checked)}
                 className="h-3.5 w-3.5 accent-[#1683df]"
               />
               Yalnız AI təhlili olanlar
@@ -127,7 +145,7 @@ export default function QurumlarHesabat() {
               <input
                 type="checkbox"
                 checked={onlyOverdue}
-                onChange={e => setOnlyOverdue(e.target.checked)}
+                onChange={(e) => setOnlyOverdue(e.target.checked)}
                 className="h-3.5 w-3.5 accent-[#c73030]"
               />
               Yalnız gecikmişlər
@@ -142,18 +160,24 @@ export default function QurumlarHesabat() {
           <TableHeader>
             <TableRow className="border-b border-[#dfe2e6] hover:bg-transparent">
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
-                <span className="inline-flex h-8 items-center justify-center">№</span>
+                <span className="inline-flex h-8 items-center justify-center">
+                  №
+                </span>
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
-                <SearchFilter value={docNoSearch} onChange={setDocNoSearch} placeholder="11-1/" />
+                <SearchFilter
+                  value={docNoSearch}
+                  onChange={setDocNoSearch}
+                  placeholder="Sənəd nömrəsi"
+                />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
                 <FilterDropdown
                   label={dropdownCols.sender.label}
                   options={distinctValues(dropdownCols.sender.index)}
                   selected={dropdowns.sender}
-                  onToggle={v => toggleValue('sender', v)}
-                  onClear={() => clearDropdown('sender')}
+                  onToggle={(v) => toggleValue("sender", v)}
+                  onClear={() => clearDropdown("sender")}
                 />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
@@ -161,8 +185,8 @@ export default function QurumlarHesabat() {
                   label={dropdownCols.senderEsd.label}
                   options={distinctValues(dropdownCols.senderEsd.index)}
                   selected={dropdowns.senderEsd}
-                  onToggle={v => toggleValue('senderEsd', v)}
-                  onClear={() => clearDropdown('senderEsd')}
+                  onToggle={(v) => toggleValue("senderEsd", v)}
+                  onClear={() => clearDropdown("senderEsd")}
                 />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
@@ -170,8 +194,8 @@ export default function QurumlarHesabat() {
                   label={dropdownCols.receiver.label}
                   options={distinctValues(dropdownCols.receiver.index)}
                   selected={dropdowns.receiver}
-                  onToggle={v => toggleValue('receiver', v)}
-                  onClear={() => clearDropdown('receiver')}
+                  onToggle={(v) => toggleValue("receiver", v)}
+                  onClear={() => clearDropdown("receiver")}
                 />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
@@ -179,8 +203,8 @@ export default function QurumlarHesabat() {
                   label={dropdownCols.incomingEsd.label}
                   options={distinctValues(dropdownCols.incomingEsd.index)}
                   selected={dropdowns.incomingEsd}
-                  onToggle={v => toggleValue('incomingEsd', v)}
-                  onClear={() => clearDropdown('incomingEsd')}
+                  onToggle={(v) => toggleValue("incomingEsd", v)}
+                  onClear={() => clearDropdown("incomingEsd")}
                 />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
@@ -190,7 +214,11 @@ export default function QurumlarHesabat() {
                 <PlainHeader label="Məbləğ" />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
-                <SearchFilter value={reqIdSearch} onChange={setReqIdSearch} placeholder="Sorğu Id-si" />
+                <SearchFilter
+                  value={reqIdSearch}
+                  onChange={setReqIdSearch}
+                  placeholder="Sorğu Id-si"
+                />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
                 <PlainHeader label="Xaricdə baş verən" />
@@ -200,8 +228,8 @@ export default function QurumlarHesabat() {
                   label={dropdownCols.status.label}
                   options={distinctValues(dropdownCols.status.index)}
                   selected={dropdowns.status}
-                  onToggle={v => toggleValue('status', v)}
-                  onClear={() => clearDropdown('status')}
+                  onToggle={(v) => toggleValue("status", v)}
+                  onClear={() => clearDropdown("status")}
                 />
               </TableHead>
               <TableHead className="align-middle px-2 py-3 text-center font-semibold text-[#30343b]">
@@ -227,100 +255,261 @@ export default function QurumlarHesabat() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} className="py-10 text-center text-[#8a8f96]">
+                <TableCell
+                  colSpan={16}
+                  className="py-10 text-center text-[#8a8f96]"
+                >
                   Heç bir nəticə tapılmadı
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map(({ row, index }, displayIndex) => {
-                const sentAt = getSentAt(index)
-                const tier =
-                  sentAt && now !== null ? getStalenessTier(getAgeMinutes(sentAt, now)) : 'fresh'
-                const isDismissed = !!dismissed[index]
-                const accent = sentAt && !isDismissed ? stalenessMeta[tier].leftAccentClass : ''
-                return (
-                <TableRow
-                  key={index}
-                  className={cn('border-b border-[#e0e3e6] hover:bg-[#fafcff]', accent)}
-                >
-                  <TableCell className="px-3 py-5 text-center">{displayIndex + 1}</TableCell>
-                  <TableCell className="whitespace-nowrap px-3 py-5 text-center">{row[0]}</TableCell>
-                  <TableCell className="whitespace-nowrap px-3 py-5 text-center">{row[1]}</TableCell>
-                  <TableCell className="whitespace-nowrap px-3 py-5 text-center">{row[2]}</TableCell>
-                  <TableCell className="whitespace-nowrap px-3 py-5 text-center">{row[3]}</TableCell>
-                  <TableCell className="whitespace-nowrap px-3 py-5 text-center">{row[4]}</TableCell>
-                  <TableCell className="px-3 py-5 text-center">{row[5]}</TableCell>
-                  <TableCell className="px-3 py-5 text-center">{row[6]}</TableCell>
-                  <TableCell className="whitespace-nowrap px-3 py-5 text-center">{row[7]}</TableCell>
-                  <TableCell className="px-3 py-5 text-center">
-                    <CheckCircle2 className="mx-auto h-4 w-4 text-[#64a873]" />
-                  </TableCell>
-                  <TableCell className="px-3 py-5 text-center">
-                    <div className="inline-flex items-center gap-2">
-                      <span>{row[8]}</span>
-                      {isDismissed ? (
-                        <span
-                          title={dismissed[index]?.reason || 'Bağlanmış'}
-                          className="inline-flex items-center gap-1 rounded-sm border border-[#c9d0d7] bg-[#f4f7fa] px-1.5 py-0.5 text-[10px] font-semibold text-[#61656b]"
-                        >
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#8a8f96]" />
-                          Bağlanmış
-                        </span>
-                      ) : (
-                        (() => {
-                          const analysis = getAnalysis(index)
-                          return analysis ? (
+              (() => {
+                const failuresByReceiver = new Map<string, typeof filtered>();
+                for (const item of filtered) {
+                  if (item.row[8] !== "Uğursuz") continue;
+                  const key = `${item.row[0]}||${item.row[3]}`;
+                  let bucket = failuresByReceiver.get(key);
+                  if (!bucket) {
+                    bucket = [];
+                    failuresByReceiver.set(key, bucket);
+                  }
+                  bucket.push(item);
+                }
+
+                let n = 0;
+                const nodes: React.ReactNode[] = [];
+                const seenFailureGroups = new Set<string>();
+
+                type RenderPlan = {
+                  entry: (typeof filtered)[number];
+                  isGroupPrimary: boolean;
+                  isChild: boolean;
+                  isExpanded: boolean;
+                  hiddenCount: number;
+                  groupKey?: string;
+                };
+
+                const plan: RenderPlan[] = [];
+
+                for (const item of filtered) {
+                  const { row } = item;
+
+                  if (row[8] !== "Uğursuz") {
+                    plan.push({
+                      entry: item,
+                      isGroupPrimary: false,
+                      isChild: false,
+                      isExpanded: false,
+                      hiddenCount: 0,
+                    });
+                    continue;
+                  }
+
+                  const groupKeyForRow = `${row[0]}||${row[3]}`;
+                  if (seenFailureGroups.has(groupKeyForRow)) continue;
+                  seenFailureGroups.add(groupKeyForRow);
+
+                  const groupItems = failuresByReceiver.get(groupKeyForRow)!;
+                  const isGroup = groupItems.length > 1;
+                  const isExpanded = !!expandedGroups[groupKeyForRow];
+
+                  plan.push({
+                    entry: groupItems[0],
+                    isGroupPrimary: isGroup,
+                    isChild: false,
+                    isExpanded,
+                    hiddenCount: isGroup ? groupItems.length - 1 : 0,
+                    groupKey: groupKeyForRow,
+                  });
+
+                  if (isGroup && isExpanded) {
+                    for (const child of groupItems.slice(1)) {
+                      plan.push({
+                        entry: child,
+                        isGroupPrimary: false,
+                        isChild: true,
+                        isExpanded: false,
+                        hiddenCount: 0,
+                        groupKey: groupKeyForRow,
+                      });
+                    }
+                  }
+                }
+
+                for (const step of plan) {
+                  const { row, index } = step.entry;
+                  const {
+                    isGroupPrimary,
+                    isChild,
+                    isExpanded,
+                    hiddenCount,
+                    groupKey,
+                  } = step;
+
+                  n++;
+
+                  const sentAt = getSentAt(index);
+                  const tier =
+                    sentAt && now !== null
+                      ? getStalenessTier(getAgeMinutes(sentAt, now))
+                      : "fresh";
+                  const isDismissed = !!dismissed[index];
+                  const accent =
+                    sentAt && !isDismissed
+                      ? stalenessMeta[tier].leftAccentClass
+                      : "";
+                  const analysis = getAnalysis(index);
+
+                  nodes.push(
+                    <TableRow
+                      key={`${groupKey ?? "solo"}-${index}`}
+                      onClick={
+                        isGroupPrimary && groupKey
+                          ? () => toggleGroup(groupKey)
+                          : undefined
+                      }
+                      className={cn(
+                        "border-b border-[#e0e3e6]",
+                        accent,
+                        isChild
+                          ? "bg-[#f6faff] hover:bg-[#eef5fc]"
+                          : "hover:bg-[#fafcff]",
+                        isGroupPrimary && "cursor-pointer",
+                      )}
+                    >
+                      <TableCell
+                        className={cn(
+                          "px-3 py-5 text-center",
+                          isChild && "pl-8",
+                        )}
+                      >
+                        {isGroupPrimary ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <ChevronDown
+                              className={cn(
+                                "h-3 w-3 text-[#1683df] transition-transform",
+                                !isExpanded && "-rotate-90",
+                              )}
+                            />
+                            <span>{n}</span>
+                            {!isExpanded && hiddenCount > 0 && (
+                              <span className="rounded-sm bg-[#e6f1ff] px-1 py-0.5 text-[10px] font-semibold text-[#1683df]">
+                                +{hiddenCount} daha
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          n
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-5 text-center">
+                        {row[0]}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-5 text-center">
+                        {row[1]}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-5 text-center">
+                        {row[2]}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-5 text-center">
+                        {row[3]}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-5 text-center">
+                        {row[4]}
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        {row[5]}
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        {row[6]}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-5 text-center">
+                        {row[7]}
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        <CheckCircle2 className="mx-auto h-4 w-4 text-[#64a873]" />
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        <div className="inline-flex items-center gap-2">
+                          <span>{row[8]}</span>
+                          {isDismissed ? (
+                            <span
+                              title={dismissed[index]?.reason || "Bağlanmış"}
+                              className="inline-flex items-center gap-1 rounded-sm border border-[#c9d0d7] bg-[#f4f7fa] px-1.5 py-0.5 text-[10px] font-semibold text-[#61656b]"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#8a8f96]" />
+                              Bağlanmış
+                            </span>
+                          ) : analysis ? (
                             <AiPill
                               difficulty={analysis.difficulty}
                               detectedError={analysis.detectedError}
                             />
-                          ) : null
-                        })()
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-3 py-5 text-center">Xeyr</TableCell>
-                  <TableCell className="px-3 py-5 text-center">
-                    {sentAt ? <AgeChip sentAt={sentAt} /> : <span className="text-[#8a8f96]">—</span>}
-                  </TableCell>
-                  <TableCell className="whitespace-pre-line px-3 py-5 text-center leading-[1.4]">{row[9]}</TableCell>
-                  <TableCell className="px-3 py-5 text-center">2.1</TableCell>
-                  <TableCell className="px-3 py-5 text-center">
-                    <Link
-                      href={`${REPORT_PATH}/${index}`}
-                      aria-label="Sənədə bax"
-                      className="inline-flex items-center justify-center rounded p-1 text-[#2879d7] hover:bg-[#eef4fc]"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-                )
-              })
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        Xeyr
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        {sentAt ? (
+                          <AgeChip sentAt={sentAt} />
+                        ) : (
+                          <span className="text-[#8a8f96]">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-pre-line px-3 py-5 text-center leading-[1.4]">
+                        {row[9]}
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        2.1
+                      </TableCell>
+                      <TableCell className="px-3 py-5 text-center">
+                        <Link
+                          href={`${REPORT_PATH}/${index}`}
+                          aria-label="Sənədə bax"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center justify-center rounded p-1 text-[#2879d7] hover:bg-[#eef4fc]"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </TableCell>
+                    </TableRow>,
+                  );
+                }
+
+                return nodes;
+              })()
             )}
           </TableBody>
         </Table>
       </div>
     </section>
-  )
+  );
 }
 
-function AiPill({ difficulty, detectedError }: { difficulty: Difficulty; detectedError: string }) {
-  const meta = difficultyMeta[difficulty]
+function AiPill({
+  difficulty,
+  detectedError,
+}: {
+  difficulty: Difficulty;
+  detectedError: string;
+}) {
+  const meta = difficultyMeta[difficulty];
   return (
     <span
       title={`AI (${meta.label}): ${detectedError}`}
       className={cn(
-        'inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold',
+        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold",
         meta.bgClass,
         meta.textClass,
         meta.borderClass,
       )}
     >
-      <span className={cn('h-1.5 w-1.5 rounded-full', meta.dotClass)} />
+      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dotClass)} />
       AI
     </span>
-  )
+  );
 }
 
 function PlainHeader({ label }: { label: string }) {
@@ -328,7 +517,7 @@ function PlainHeader({ label }: { label: string }) {
     <div className="flex h-8 min-w-[90px] items-center justify-center rounded border border-[#e0e3e7] px-2.5 font-normal text-[#30343b]">
       {label}
     </div>
-  )
+  );
 }
 
 function SearchFilter({
@@ -336,21 +525,21 @@ function SearchFilter({
   onChange,
   placeholder,
 }: {
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
 }) {
   return (
     <div className="relative">
       <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a8f96]" />
       <Input
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="h-8 min-w-[130px] rounded border-[#e0e3e7] bg-white pl-7 text-center text-[12px] font-normal text-[#30343b] placeholder:text-[#777d84]"
       />
     </div>
-  )
+  );
 }
 
 function FilterDropdown({
@@ -360,13 +549,13 @@ function FilterDropdown({
   onToggle,
   onClear,
 }: {
-  label: string
-  options: readonly string[]
-  selected: Set<string>
-  onToggle: (v: string) => void
-  onClear: () => void
+  label: string;
+  options: readonly string[];
+  selected: Set<string>;
+  onToggle: (v: string) => void;
+  onClear: () => void;
 }) {
-  const activeCount = selected.size
+  const activeCount = selected.size;
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
@@ -374,8 +563,8 @@ function FilterDropdown({
           <button
             type="button"
             className={cn(
-              'flex h-8 w-full min-w-[130px] items-center justify-between rounded border border-[#e0e3e7] bg-white px-2.5 font-normal text-[#777d84] hover:bg-[#f7f8fa] data-[popup-open]:border-[#c9d0d7] data-[popup-open]:bg-white',
-              activeCount > 0 && 'border-[#1683df] text-[#1683df]',
+              "flex h-8 w-full min-w-[130px] items-center justify-between rounded border border-[#e0e3e7] bg-white px-2.5 font-normal text-[#777d84] hover:bg-[#f7f8fa] data-[popup-open]:border-[#c9d0d7] data-[popup-open]:bg-white",
+              activeCount > 0 && "border-[#1683df] text-[#1683df]",
             )}
           >
             <span className="truncate">
@@ -404,7 +593,7 @@ function FilterDropdown({
             Təmizlə
           </button>
         )}
-        {options.map(value => (
+        {options.map((value) => (
           <DropdownMenuCheckboxItem
             key={value}
             checked={selected.has(value)}
@@ -417,5 +606,5 @@ function FilterDropdown({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

@@ -14,6 +14,7 @@ export type SentMessage = {
   detectedError: string
   note: string
   sentAt: number
+  auto?: boolean
 }
 
 type PersistedState = {
