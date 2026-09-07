@@ -1,4 +1,4 @@
-import type { Employee } from '@/lib/employees'
+import type { TeamsGroup } from '@/lib/employees'
 import type { Analysis, Row } from '@/lib/records'
 
 const entityGuids: Readonly<Record<string, string>> = {
@@ -54,7 +54,7 @@ export function buildTeamsMessage({
   analysis,
   docNo,
 }: {
-  recipient: Employee
+  recipient: TeamsGroup
   row: Row
   analysis: Analysis
   docNo: string

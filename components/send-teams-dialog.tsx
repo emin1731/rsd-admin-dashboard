@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { records, type Analysis } from '@/lib/records'
-import { employees, getEmployee } from '@/lib/employees'
+import { getTeamsGroup, teamsGroups } from '@/lib/employees'
 import { logMessage, resolveRecipient } from '@/lib/teams-messaging'
 import { buildTeamsMessage } from '@/lib/teams-message'
 
@@ -31,15 +31,17 @@ export function SendTeamsDialog({
   docNo: string
   onSent?: () => void
 }) {
+  const row = records[documentIndex]
+  const esd = row[4]
+
   const initialRecipientId = useMemo(
-    () => resolveRecipient(analysis.category)?.id ?? employees[0].id,
-    [analysis.category],
+    () => resolveRecipient(esd)?.id ?? teamsGroups[0].id,
+    [esd],
   )
   const [recipientId, setRecipientId] = useState(initialRecipientId)
   const [note, setNote] = useState('')
 
-  const row = records[documentIndex]
-  const recipient = getEmployee(recipientId) ?? employees[0]
+  const recipient = getTeamsGroup(recipientId) ?? teamsGroups[0]
 
   const draftMessage = useMemo(
     () => buildTeamsMessage({ recipient, row, analysis, docNo }),
@@ -60,6 +62,7 @@ export function SendTeamsDialog({
       docNo,
       recipientId: recipient.id,
       category: analysis.category,
+      esd,
       detectedError: analysis.detectedError,
       note: note.trim(),
     })
@@ -98,18 +101,18 @@ export function SendTeamsDialog({
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-medium">{recipient.name}</div>
                 <div className="truncate text-[11px] text-[#61656b]">
-                  {recipient.title} · {recipient.email}
+                  Teams qrupu · ESD: {esd}
                 </div>
               </div>
               <select
                 value={recipientId}
                 onChange={e => setRecipientId(e.target.value)}
-                aria-label="Alıcını dəyişdir"
-                className="rounded border border-[#e0e3e7] bg-white px-2 py-1 text-[12px] text-[#30343b]"
+                aria-label="Teams qrupunu dəyişdir"
+                className="max-w-[200px] rounded border border-[#e0e3e7] bg-white px-2 py-1 text-[12px] text-[#30343b]"
               >
-                {employees.map(e => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
+                {teamsGroups.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
                   </option>
                 ))}
               </select>

@@ -1,12 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, MessageSquareText, RotateCcw, Send } from 'lucide-react'
+import { ArrowRight, MessageSquareText, RotateCcw, Send, Zap } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { REPORT_PATH, type AnalysisCategory, formatAge, getAgeMinutes } from '@/lib/records'
-import { employees, getEmployee } from '@/lib/employees'
+import { REPORT_PATH, formatAge, getAgeMinutes, records } from '@/lib/records'
+import {
+  DEFAULT_FALLBACK_GROUP_ID,
+  getTeamsGroup,
+  teamsGroups,
+} from '@/lib/employees'
 import {
   getMessageLog,
   getRouting,
@@ -16,19 +20,13 @@ import {
 } from '@/lib/teams-messaging'
 import { useTickingNow } from '@/lib/useTickingNow'
 
-const CATEGORIES: readonly AnalysisCategory[] = [
-  'Şəbəkə',
-  'Sertifikat',
-  'Qəbul edən sistem',
-  'Format',
-  'Vaxt aşımı',
-  'Avtorizasiya',
-]
+// Distinct incoming ESDs pulled from the dataset (row[4]).
+const routableEsds: readonly string[] = Array.from(
+  new Set(records.map(r => r[4]).filter(Boolean)),
+).sort()
 
 export default function TeamsMessagingPage() {
-  const [routing, setRouting] = useState<Record<AnalysisCategory, string>>(
-    {} as Record<AnalysisCategory, string>,
-  )
+  const [routing, setRouting] = useState<Record<string, string>>({})
   const [log, setLog] = useState<SentMessage[]>([])
   const [ready, setReady] = useState(false)
   const now = useTickingNow()
@@ -39,8 +37,8 @@ export default function TeamsMessagingPage() {
     setReady(true)
   }, [])
 
-  const handleChange = (category: AnalysisCategory, employeeId: string) => {
-    setRoutingFor(category, employeeId)
+  const handleChange = (esd: string, groupId: string) => {
+    setRoutingFor(esd, groupId)
     setRouting(getRouting())
   }
 
@@ -48,6 +46,11 @@ export default function TeamsMessagingPage() {
     resetRouting()
     setRouting(getRouting())
   }
+
+  const sortedGroups = useMemo(
+    () => [...teamsGroups].sort((a, b) => a.name.localeCompare(b.name, 'az')),
+    [],
+  )
 
   if (!ready) return null
 
@@ -58,7 +61,8 @@ export default function TeamsMessagingPage() {
           <div>
             <h1 className="text-[15px] font-semibold">AI mesajlarının marşrutlaşdırılması</h1>
             <p className="mt-1 text-[12px] text-[#61656b]">
-              Hər xəta kateqoriyası üçün Teams-də məsul olan işçini seçin.
+              Xətanın baş verdiyi ESD üçün məsul Teams qrupunu seçin. Auto-göndəriş bu qrupa
+              yönləndirilir.
             </p>
           </div>
           <button
@@ -71,46 +75,46 @@ export default function TeamsMessagingPage() {
           </button>
         </div>
         <div className="divide-y divide-[#eef0f3]">
-          {CATEGORIES.map(category => {
-            const employeeId = routing[category] ?? ''
-            const employee = getEmployee(employeeId)
+          {routableEsds.map(esd => {
+            const groupId = routing[esd] ?? DEFAULT_FALLBACK_GROUP_ID
+            const group = getTeamsGroup(groupId)
             return (
               <div
-                key={category}
+                key={esd}
                 className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="inline-flex min-w-[160px] items-center rounded-full border border-[#c9ddf5] bg-[#f6faff] px-2.5 py-1 text-[12px] font-medium text-[#1683df]">
-                    {category}
+                  <span className="inline-flex min-w-[180px] items-center rounded-full border border-[#c9ddf5] bg-[#f6faff] px-2.5 py-1 text-[12px] font-medium text-[#1683df]">
+                    ESD: {esd}
                   </span>
-                  {employee && (
+                  {group && (
                     <div className="flex min-w-0 items-center gap-2">
                       <span
                         className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-                        style={{ backgroundColor: employee.color }}
+                        style={{ backgroundColor: group.color }}
                       >
-                        {employee.initials}
+                        {group.initials}
                       </span>
                       <div className="min-w-0">
                         <div className="truncate text-[13px] font-medium text-[#30343b]">
-                          {employee.name}
+                          {group.name}
                         </div>
                         <div className="truncate text-[11px] text-[#61656b]">
-                          {employee.title}
+                          Teams qrupu
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
                 <select
-                  value={employeeId}
-                  onChange={e => handleChange(category, e.target.value)}
-                  aria-label={`${category} kateqoriyası üçün məsulu seçin`}
-                  className="rounded border border-[#e0e3e7] bg-white px-3 py-1.5 text-[12px] text-[#30343b]"
+                  value={groupId}
+                  onChange={e => handleChange(esd, e.target.value)}
+                  aria-label={`${esd} ESD üçün Teams qrupunu seçin`}
+                  className="max-w-[320px] rounded border border-[#e0e3e7] bg-white px-3 py-1.5 text-[12px] text-[#30343b]"
                 >
-                  {employees.map(e => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
+                  {sortedGroups.map(g => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
                     </option>
                   ))}
                 </select>
@@ -136,7 +140,7 @@ export default function TeamsMessagingPage() {
         ) : (
           <ul className="divide-y divide-[#eef0f3]">
             {log.map(msg => {
-              const recipient = getEmployee(msg.recipientId)
+              const group = getTeamsGroup(msg.recipientId)
               const minutes =
                 now !== null
                   ? getAgeMinutes(new Date(msg.sentAt).toISOString(), now)
@@ -150,16 +154,24 @@ export default function TeamsMessagingPage() {
                           className={cn(
                             'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
                           )}
-                          style={{ backgroundColor: recipient?.color ?? '#8a8f96' }}
+                          style={{ backgroundColor: group?.color ?? '#8a8f96' }}
                         >
-                          {recipient?.initials ?? '??'}
+                          {group?.initials ?? '??'}
                         </span>
                         <div className="min-w-0">
-                          <div className="text-[13px] font-medium text-[#30343b]">
-                            {recipient?.name ?? 'Naməlum alıcı'}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[13px] font-medium text-[#30343b]">
+                              {group?.name ?? 'Naməlum Teams qrupu'}
+                            </span>
+                            {msg.auto && (
+                              <span className="inline-flex items-center gap-1 rounded-sm bg-[#5b5fc7] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                                <Zap className="h-2.5 w-2.5" />
+                                Avtomatik
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-[#61656b]">
-                            {msg.category} · {msg.docNo}
+                            ESD: {msg.esd || '—'} · {msg.docNo}
                           </div>
                         </div>
                       </div>

@@ -7,7 +7,7 @@ import { DismissDialog } from '@/components/dismiss-dialog'
 import { SendTeamsDialog } from '@/components/send-teams-dialog'
 import { cn } from '@/lib/utils'
 import { type Analysis, difficultyMeta, formatAge, getAgeMinutes, records } from '@/lib/records'
-import { employees, getEmployee } from '@/lib/employees'
+import { getTeamsGroup, teamsGroups } from '@/lib/employees'
 import {
   getMessagesForDocument,
   logMessage,
@@ -53,14 +53,16 @@ export function AiAnalysisPanel({
       fresh.length === 0 &&
       !freshDismissal
     ) {
-      const recipient = resolveRecipient(analysis.category) ?? getEmployee(employees[0].id)!
       const row = records[documentIndex]
+      const esd = row[4]
+      const recipient = resolveRecipient(esd) ?? teamsGroups[0]
       const draft = buildTeamsMessage({ recipient, row, analysis, docNo })
       logMessage({
         documentIndex,
         docNo,
         recipientId: recipient.id,
         category: analysis.category,
+        esd,
         detectedError: analysis.detectedError,
         note: draft,
         auto: true,
@@ -88,7 +90,7 @@ export function AiAnalysisPanel({
   if (!analysis) return null
 
   const diff = difficultyMeta[analysis.difficulty]
-  const latestRecipient = latestSend ? getEmployee(latestSend.recipientId) : undefined
+  const latestRecipient = latestSend ? getTeamsGroup(latestSend.recipientId) : undefined
 
   return (
     <section className="mb-6 rounded-md border border-[#c9ddf5] bg-[#f6faff] p-5">

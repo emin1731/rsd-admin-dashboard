@@ -1,9 +1,14 @@
 'use client'
 
-import { defaultRouting, getEmployee, type Employee } from '@/lib/employees'
+import {
+  DEFAULT_FALLBACK_GROUP_ID,
+  defaultRouting,
+  getTeamsGroup,
+  type TeamsGroup,
+} from '@/lib/employees'
 import type { AnalysisCategory } from '@/lib/records'
 
-const KEY = 'rsd:teams-messaging'
+const KEY = 'rsd:teams-messaging-v2'
 
 export type SentMessage = {
   id: string
@@ -11,6 +16,7 @@ export type SentMessage = {
   docNo: string
   recipientId: string
   category: AnalysisCategory
+  esd: string
   detectedError: string
   note: string
   sentAt: number
@@ -18,7 +24,7 @@ export type SentMessage = {
 }
 
 type PersistedState = {
-  routing: Partial<Record<AnalysisCategory, string>>
+  routing: Record<string, string>
   log: SentMessage[]
 }
 
@@ -46,14 +52,14 @@ function write(state: PersistedState) {
   }
 }
 
-export function getRouting(): Record<AnalysisCategory, string> {
+export function getRouting(): Record<string, string> {
   const stored = read().routing
   return { ...defaultRouting, ...stored }
 }
 
-export function setRoutingFor(category: AnalysisCategory, employeeId: string) {
+export function setRoutingFor(esd: string, groupId: string) {
   const state = read()
-  state.routing = { ...state.routing, [category]: employeeId }
+  state.routing = { ...state.routing, [esd]: groupId }
   write(state)
 }
 
@@ -63,9 +69,9 @@ export function resetRouting() {
   write(state)
 }
 
-export function resolveRecipient(category: AnalysisCategory): Employee | undefined {
+export function resolveRecipient(esd: string): TeamsGroup | undefined {
   const routing = getRouting()
-  return getEmployee(routing[category])
+  return getTeamsGroup(routing[esd]) ?? getTeamsGroup(DEFAULT_FALLBACK_GROUP_ID)
 }
 
 export function getMessageLog(): SentMessage[] {
